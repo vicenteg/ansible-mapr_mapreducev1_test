@@ -1,0 +1,37 @@
+---
+    - name: clean up the teragen
+      run_once: yes
+      command: hadoop fs -rm -f -r /user/teragen
+
+    - name: try to submit a small job (teragen - MRv1)
+      run_once: yes
+      environment:
+        MAPR_MAPREDUCE_MODE: classic
+      command: hadoop jar /opt/mapr/hadoop/hadoop-0.20.2/hadoop-0.20.2-dev-examples.jar teragen 100 /user/teragen
+      register: teragen
+
+    - name: clean up the teragen
+      run_once: yes
+      command: hadoop fs -rm -f -r /user/teragen
+
+    - name: run TestDFSIO to write,read 15GB of data per node (MRv1)
+      run_once: yes
+      environment:
+        MAPR_MAPREDUCE_MODE: classic
+      command: hadoop jar /opt/mapr/hadoop/hadoop-0.20.2/hadoop-0.20.2-dev-test.jar TestDFSIO -{{item}} -fileSize 1024 -nrFiles {{groups['cluster']|length * 15}} -resFile /tmp/mrv1-result-{{item}}
+      with_items:
+        - write
+        - read
+
+    - name: get the results files
+      run_once: yes
+      fetch: src=/tmp/mrv1-result-{{item}} dest=test_results fail_on_missing=true
+      with_items:
+        - read
+        - write
+
+    - name: clean up TestDFSIO data
+      run_once: yes
+      environment:
+        MAPR_MAPREDUCE_MODE: classic
+      command: hadoop jar /opt/mapr/hadoop/hadoop-0.20.2/hadoop-0.20.2-dev-test.jar TestDFSIO -clean
